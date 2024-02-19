@@ -1,0 +1,827 @@
+---
+title: "Real Estate Data Analysis"
+
+subtitle: "RAM0580 Andmeanalüüs - Serminar 1"
+
+author: "<br>Authors: Erik Schults, Egert Blok <br>"
+
+date: "Date: 2024.02.12 <br>"
+
+
+output: 
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float: 
+      collapsed: false
+    number_sections: true
+    theme: default
+    code_folding: show
+---
+
+Housing dataset from https://www.kaggle.com/datasets/vikramamin/housing-linear-regression
+
+# Data import
+
+```{r}
+housing <- read.csv("housing.csv", dec = ".", stringsAsFactors = FALSE)
+```
+
+
+```{r}
+library(skimr)
+skim(housing)
+```
+
+```{r, results='asis'}
+library(summarytools)
+dfSummary(housing,plain.ascii = FALSE, style = "grid",tmp.img.dir  = "/tmp",graph.magnif = 0.85)
+```
+
+## Missing values
+
+```{r}
+sum(is.na(housing))
+sum(!complete.cases(housing))
+apply(is.na(housing), 2, sum)
+```
+
+## Conclusion
+
+No empty rows found.
+The address can be discarded as it does not provide additional information.
+No factors need to be formed as all values are numeric.
+
+The address is removed from the set because all values are distinct strings.
+
+```{r}
+library(dplyr)
+housing <-housing %>%
+    select(c(
+    "Avg..Area.Income",
+    "Avg..Area.House.Age",
+    "Avg..Area.Number.of.Rooms",
+    "Avg..Area.Number.of.Bedrooms",
+    "Area.Population",
+    "Price"
+  ))
+```
+
+# Descriptive data analysis
+
+The descriptive data analysis consists of presenting:
+
+* Diagrams of the distribution of characteristics to show how the values of certain
+  (non)numeric characteristic is spread or distributed across the dataset. The
+  diagrams can include histograms, density plots, and box plots which help understanding
+  the tendency, dispersion, and shape of the data distribution.
+    * Tendency: A central or typical value of a dataset (e.g avg, mean, median, mode).
+    * Dispersion(variability): Shows how spread out the values in a dataset are compared to
+      the central point.
+      This includes the range, interquartile range (IQR, range of the middle 50,75%),
+      variance, and standard deviation.
+        * Range: The difference between the highest and lowest points. It gives
+          a quick sense about the spread, but is heavily influence by the outliers.
+        * Variance: Average of the squared difference from the mean.
+          Provides good insights into the variability within a dataset, by considering
+          how each datapoint differs form the mean.
+        * Standard deviation: Sqrt of variance, indicating that the datapoints
+          are about x (std) units from the mean. It provides insights into the dispersion of the data.
+* Frequency tables to identify the most (un)common values and to understand
+  the distribution of categorical data.
+
+## Price
+
+The target property _Y=Price_ is a continuous variable.
+
+Let's visualize the distribution using a histogram.
+
+
+```{r}
+Price_hist <- hist(
+  housing$Price, 
+  col = "skyblue",
+  main = "Price frequency",
+  xlab="Price",
+  ylab = "Frequency"
+)
+
+```
+
+The relative distribution:
+
+```{r}
+par(mfrow=c(1,2))
+
+Price_hist$counts <- Price_hist$counts / sum(Price_hist$counts) * 100
+
+plot(
+  Price_hist,
+  col = "skyblue",
+  main = "Price % distribution",
+  xlab="Price",
+  ylab = "Frequency %",
+  cex.main=0.8
+)
+
+Price_box <- boxplot(
+  housing$Price, 
+  col = "skyblue",
+  horizontal = 1,
+  main = "Price box plot",
+  xlab = "Price",
+  cex.main = 0.8,
+  range = 2
+)
+```
+
+_Price_ has outliers on both sides are:
+
+```{r}
+sort(Price_box$out)
+```
+The 2 outliers on the left side have the values of 16e3 and 31e3.
+The 1 outlier on the right has a value of 2.5e6;
+Details of the 3 outliers:
+
+```{r}
+Price_out <- which(housing$Price %in% Price_box$out)
+
+library(DT)
+datatable(
+  housing[Price_out, ],
+  options=list(scrollX=1,pageLength=3,searching = FALSE,scroller = TRUE,scrollY=200)
+)
+```
+
+Frequency table of _Price_ (first the data has to be _cut()_ into intervals based on the histogram).
+
+```{r}
+intervals <- cut(housing$Price, Price_hist$breaks, include.lowest = TRUE)
+col_frequency <- table(intervals)
+col_frequency_rel <- prop.table(col_frequency) * 100
+Price_ftable <- cbind(rownames(col_frequency), col_frequency, round(col_frequency_rel, 2), round(cumsum(col_frequency_rel), 2))
+Price_ftable <- rbind(Price_ftable, c("Total", sum(col_frequency), sum(col_frequency_rel), ""))
+Price_ftable <- data.frame(Price_ftable, row.names = NULL)
+names(Price_ftable) <- c("Price", "Frequency", "Frequency %", "Cumulative f. %")
+
+library(knitr)
+library(kableExtra)
+
+kable_styling(
+  kable(
+    Price_ftable,
+    align = c('l','r','r', 'r')
+  ),
+  bootstrap_options = c("striped","hover"),
+  full_width = 0,
+  position = "left"
+)
+```
+
+Numerical characteristics of the variable _Price_:
+
+```{r}
+library(FSA)
+
+Price_summary <- Summarize(housing$Price, digits = 2)
+kable_styling(kable(t(Price_summary)))
+```
+
+_Price_ is quite symmetric as indicated by its mean (1232073) marginally exceeding the median (1232669).
+A majority, 42%, of the _Price_ observations are clustered within a 1e6-1.5e6 range. The dataset of this variable
+ranges from a minimum of 15e3 to a maxiumum of 2.4e6.
+
+
+
+## Avg..Area.Income
+
+The target property _Y=Avg..Area.Income_ is a continuous variable.
+
+Let's visualize the distribution using a histogram.
+
+
+```{r}
+Avg..Area.Income_hist <- hist(
+  housing$Avg..Area.Income, 
+  col = "skyblue",
+  main = "Avg income frequency",
+  xlab="Avg income",
+  ylab = "Frequency",
+  breaks = 12
+)
+
+```
+
+The relative distribution:
+
+```{r}
+par(mfrow=c(1,2))
+
+Avg..Area.Income_hist$counts <- Avg..Area.Income_hist$counts / sum(Avg..Area.Income_hist$counts) * 100
+
+plot(
+  Avg..Area.Income_hist,
+  col = "skyblue",
+  main = "Avg income % distribution",
+  xlab="Avg income",
+  ylab = "Frequency %",
+  cex.main=0.8
+)
+
+Avg..Area.Income_box <- boxplot(
+  housing$Avg..Area.Income, 
+  col = "skyblue",
+  horizontal = 1,
+  main = "Avg income box plot",
+  xlab = "Avg income",
+  cex.main = 0.8,
+  range = 1.9
+)
+```
+
+_Avg..Area.Income_hist_ has an asymmetric left side. The outliers are:
+
+```{r}
+sort(Avg..Area.Income_box$out)
+```
+The outlier on the left side has a value of ~17769 and the values of the 2 outliers on right
+are 104e3 and 107e3.
+Details of the 3 outliers:
+
+```{r}
+Avg..Area.Income_out <- which(housing$Avg..Area.Income %in% Avg..Area.Income_box$out)
+
+library(DT)
+datatable(
+  housing[Avg..Area.Income_out, ],
+  options=list(scrollX=1,pageLength=3,searching = FALSE,scroller = TRUE,scrollY=200)
+)
+```
+
+
+Frequency table of _Avg..Area.Income_.
+
+```{r}
+intervals <- cut(housing$Avg..Area.Income, Avg..Area.Income_hist$breaks, include.lowest = TRUE)
+col_frequency <- table(intervals)
+col_frequency_rel <- prop.table(col_frequency) * 100
+Avg..Area.Income_ftable <- cbind(rownames(col_frequency), col_frequency, round(col_frequency_rel, 2), round(cumsum(col_frequency_rel), 2))
+Avg..Area.Income_ftable <- rbind(Avg..Area.Income_ftable, c("Total", sum(col_frequency), sum(col_frequency_rel), ""))
+Avg..Area.Income_ftable <- data.frame(Avg..Area.Income_ftable, row.names = NULL)
+names(Avg..Area.Income_ftable) <- c("Avg..Area.Income", "Frequency", "Frequency %", "Cumulative f. %")
+
+library(knitr)
+library(kableExtra)
+
+kable_styling(
+  kable(
+    Avg..Area.Income_ftable,
+    align = c('l','r','r', 'r')
+  ),
+  bootstrap_options = c("striped","hover"),
+  full_width = 0,
+  position = "left"
+)
+```
+
+Numerical characteristics of the variable _Avg..Area.Income_:
+
+```{r}
+library(FSA)
+
+Avg..Area.Income_summary <- Summarize(housing$Avg..Area.Income, digits = 2)
+kable_styling(kable(t(Avg..Area.Income_summary)))
+```
+
+_Avg..Area.Income_ is quite symmetric, with a slight left skew, as indicated by its mean (68583) marginally deceeding the median (68804).
+A majority, 65%, of the _Avg..Area.Income_ observations are clustered within a 60k to 80k range.
+The dataset of this variable ranges from a minimum of 17e3 to a maxiumum of 107e3.
+
+
+## Avg..Area.House.Age
+
+The target property _Y=Avg..Area.House.Age_ is a continuous variable.
+
+Let's visualize the distribution using a histogram.
+
+
+```{r}
+Avg..Area.House.Age_hist <- hist(
+  housing$Avg..Area.House.Age, 
+  col = "skyblue",
+  main = "Avg house age frequency",
+  xlab="Avg house age",
+  ylab = "Frequency"
+)
+
+```
+
+The relative distribution:
+
+```{r}
+par(mfrow=c(1,2))
+
+Avg..Area.House.Age_hist$counts <- Avg..Area.House.Age_hist$counts / sum(Avg..Area.House.Age_hist$counts) * 100
+
+plot(
+  Avg..Area.House.Age_hist,
+  col = "skyblue",
+  main = "Avg house age % distribution",
+  xlab="Avg house age",
+  ylab = "Frequency %",
+  cex.main=0.8
+)
+
+Avg..Area.House.Age_box <- boxplot(
+  housing$Avg..Area.House.Age, 
+  col = "skyblue",
+  horizontal = 1,
+  main = "Avg house age box plot",
+  xlab = "Avg house age",
+  cex.main = 0.8,
+  range = 1.6
+)
+```
+
+_Avg..Area.House.Age_ has a slight asymmetric right side. The outliers are:
+
+```{r}
+sort(Avg..Area.House.Age_box$out)
+```
+
+The outliers are in the ranges of ~2.64 to ~3.14 (in total 10) and ~8.92 to ~9.51 (in total 7).
+Details of the 17 outliers:
+
+```{r}
+Avg..Area.House.Age_out <- which(housing$Avg..Area.House.Age %in% Avg..Area.House.Age_box$out)
+
+library(DT)
+datatable(
+  housing[Avg..Area.House.Age_out, ],
+  options=list(scrollX=1,pageLength=7,searching = FALSE,scroller = TRUE,scrollY=200)
+)
+```
+
+
+## Avg..Area.Number.of.Rooms
+
+The target property _Y=Avg..Area.Number.of.Rooms_ is a continuous variable.
+
+Let's visualize the distribution using a histogram.
+
+
+```{r}
+Avg..Area.Number.of.Rooms_hist <- hist(
+  housing$Avg..Area.Number.of.Rooms, 
+  col = "skyblue",
+  main = "Avg rooms frequency",
+  xlab="Avg rooms",
+  ylab = "Frequency"
+)
+
+```
+
+The relative distribution:
+
+```{r}
+par(mfrow=c(1,2))
+
+Avg..Area.Number.of.Rooms_hist$counts <- Avg..Area.Number.of.Rooms_hist$counts / sum(Avg..Area.Number.of.Rooms_hist$counts) * 100
+
+plot(
+  Avg..Area.Number.of.Rooms_hist,
+  col = "skyblue",
+  main = "Avg rooms % distribution",
+  xlab="Avg rooms",
+  ylab = "Frequency %",
+  cex.main=0.8
+)
+
+Avg..Area.Number.of.Rooms_box <- boxplot(
+  housing$Avg..Area.Number.of.Rooms, 
+  col = "skyblue",
+  horizontal = 1,
+  main = "Avg rooms box plot",
+  xlab = "Avg rooms",
+  cex.main = 0.8,
+  range = 1.65
+)
+```
+
+_Avg..Area.Number.of.Rooms_ has a slight asymmetric left side. The outliers are:
+
+```{r}
+sort(Avg..Area.Number.of.Rooms_box$out)
+```
+
+The outliers are in the ranges of ~3.23 to ~4.03 and ~9.93 to ~10.6.
+Details of the outliers:
+
+```{r}
+Avg..Area.Number.of.Rooms_out <- which(housing$Avg..Area.Number.of.Rooms %in% Avg..Area.Number.of.Rooms_box$out)
+
+library(DT)
+datatable(
+  housing[Avg..Area.House.Age_out, ],
+  options=list(scrollX=1,pageLength=7,searching = FALSE,scroller = TRUE,scrollY=200)
+)
+```
+
+
+## Avg..Area.Number.of.Bedrooms
+
+The target property _Y=Avg..Area.Number.of.Bedrooms_ is a continuous variable.
+
+Let's visualize the distribution using a histogram.
+
+
+```{r}
+Avg..Area.Number.of.Bedrooms_hist <- hist(
+  housing$Avg..Area.Number.of.Bedrooms, 
+  col = "skyblue",
+  main = "Avg bedrooms frequency",
+  xlab="Avg bedrooms",
+  ylab = "Frequency",
+  breaks = c(2, 3, 4, 5, 6, 7)
+)
+
+```
+
+The relative distribution:
+
+```{r}
+par(mfrow=c(1,2))
+
+Avg..Area.Number.of.Bedrooms_hist$counts <- Avg..Area.Number.of.Bedrooms_hist$counts / sum(Avg..Area.Number.of.Bedrooms_hist$counts) * 100
+
+plot(
+  Avg..Area.Number.of.Bedrooms_hist,
+  col = "skyblue",
+  main = "Avg bedrooms % distribution",
+  xlab="Avg bedrooms",
+  ylab = "Frequency %",
+  cex.main=0.8
+)
+
+Avg..Area.Number.of.Bedrooms_box <- boxplot(
+  housing$Avg..Area.Number.of.Bedrooms, 
+  col = "skyblue",
+  horizontal = 1,
+  main = "Avg bedrooms box plot",
+  xlab = "Avg bedrooms",
+  cex.main = 0.8,
+  range = 1.5
+)
+```
+
+_Avg..Area.Number.of.Bedrooms_ has a slight asymmetric right side. No outliers were detected:
+
+```{r}
+sort(Avg..Area.Number.of.Bedrooms_box$out)
+```
+
+
+
+## Area.Population
+
+The target property _Y=Area.Population_ is a continuous variable.
+
+Let's visualize the distribution using a histogram.
+
+```{r}
+Area.Population_hist <- hist(
+  housing$Area.Population, 
+  col = "skyblue",
+  main = "Area population frequency",
+  xlab="Population",
+  ylab = "Frequency"
+)
+
+```
+
+The relative distribution:
+
+```{r}
+par(mfrow=c(1,2))
+
+Area.Population_hist$counts <- Area.Population_hist$counts / sum(Area.Population_hist$counts) * 100
+
+plot(
+  Area.Population_hist,
+  col = "skyblue",
+  main = "Area population % distribution",
+  xlab="Population",
+  ylab = "Frequency %",
+  cex.main=0.8
+)
+
+Area.Population_box <- boxplot(
+  housing$Area.Population, 
+  col = "skyblue",
+  horizontal = 1,
+  main = "Area population box plot",
+  xlab = "Population rooms",
+  cex.main = 0.8,
+  range = 1.5
+)
+```
+
+_Area.Population_ has a slight asymmetric left side. The outliers are:
+
+```{r}
+sort(Area.Population_box$out)
+```
+
+The outliers are in the ranges of ~170 to ~9200 and ~63000 to ~7000.
+Details of the outliers:
+
+```{r}
+Area.Population_out <- which(housing$Area.Population %in% Area.Population_box$out)
+
+library(DT)
+datatable(
+  housing[Area.Population_out, ],
+  options=list(scrollX=1,pageLength=7,searching = FALSE,scroller = TRUE,scrollY=200)
+)
+```
+## All outliers
+
+In total 93 outliers were found.
+
+```{r}
+all_out <- c(Price_out, Avg..Area.Income_out, Avg..Area.Number.of.Rooms_out, Avg..Area.House.Age_out, Area.Population_out)
+
+library(DT)
+datatable(
+  housing[all_out, ],
+  options=list(scrollX=1,pageLength=7,searching = FALSE,scroller = TRUE,scrollY=200)
+)
+```
+# ???
+
+```{r}
+# Total of 90 outliers were removed from the _housing_ dataset.
+# housing <- housing[-all_out, ]
+```
+
+The target variable for analysis is _Price_.
+Visualization of all the numeric variable distributions with a _plot()_.
+
+```{r}
+plot(Filter(is.numeric, housing), pch=20, col='blue', cex=.5)
+```
+
+Looks like The price grows linearly to all variables except _Avg..Area.Number.Of.Bedrooms_, but everything is quite scattered.
+The independant variables data is scattered, but is still linearly growing. 
+The most promising/clean linear incline to _Price_ happens with _Avg..Area.Income_.
+
+## Avg..Area.Income
+
+Looking at the relationship between _Avg..Area.Income_ and _Price_ using a _ggplot_.
+
+```{r}
+library(ggplot2)
+housing %>%
+  ggplot(aes(x = Price, y = Avg..Area.Income)) +
+  geom_point() + 
+  xlab("Price ($)") + 
+  ylab("Avg Area Income ($/year)")
+```
+
+We can see that the _Price_ increases when  _Avg..Area.Income_ is increasing.
+Let's add a color to _Area.Population_.
+
+```{r}
+library(ggplot2)
+housing %>%
+  ggplot(aes(x = Price, y = Avg..Area.Income, color = Area.Population)) +
+  geom_point() + 
+  xlab("Price ($)") + 
+  ylab("Avg Area Income ($/year)")
+housing %>%
+  ggplot(aes(y = Price, x = Avg..Area.Income, color = Area.Population)) +
+  geom_point() + 
+  ylab("Price ($)") + 
+  xlab("Avg Area Income ($/year)")
+```
+We can see that the price increases when  _Avg..Area.Income_ is increasing.
+In lower population areas the price is lower.
+
+Plots of filtered data:
+
+```{r}
+library(dplyr)
+
+# TODO: find all permutations of independent vars to find homoscedastic relations 
+# intervals for every independant variable
+# x loop through each independant variable and each interval
+# y loop through anothe independant variable
+
+plot(Filter(is.numeric, housing) %>%
+  filter(between(Avg..Area.Number.of.Rooms, 3, 5)) %>%
+  select(c(
+    "Price",
+    "Avg..Area.Income",
+    "Avg..Area.House.Age",
+    "Area.Population"
+  )), pch=20, col='blue', cex=.5, main="3-5 rooms")
+
+plot(Filter(is.numeric, housing) %>%
+  filter(between(Avg..Area.Number.of.Rooms, 5, 6)) %>%
+  select(c(
+    "Price",
+    "Avg..Area.Income",
+    "Avg..Area.House.Age",
+    "Area.Population"
+  )), pch=20, col='blue', cex=.5, main="5-6 rooms")
+
+plot(Filter(is.numeric, housing) %>%
+  filter(between(Avg..Area.Number.of.Rooms, 6, 7)) %>%
+  select(c(
+    "Price",
+    "Avg..Area.Income",
+    "Avg..Area.House.Age",
+    "Area.Population"
+  )), pch=20, col='blue', cex=.5, main="6-7 rooms")
+
+plot(Filter(is.numeric, housing) %>%
+  filter(between(Avg..Area.Number.of.Rooms, 7, 8)) %>%
+  select(c(
+    "Price",
+    "Avg..Area.Income",
+    "Avg..Area.House.Age",
+    "Area.Population"
+  )), pch=20, col='blue', cex=.5, main="7-8 rooms")
+
+
+plot(Filter(is.numeric, housing) %>%
+  filter(round(Avg..Area.Number.of.Rooms) == 7) %>%
+  select(c(
+    "Price",
+    "Avg..Area.Income",
+    "Avg..Area.House.Age",
+    "Area.Population"
+  )), pch=20, col='blue', cex=.5, main="7 rooms")
+
+
+plot(Filter(is.numeric, housing) %>%
+  filter(between(Avg..Area.Number.of.Rooms, 9, 11)) %>%
+  select(c(
+    "Price",
+    "Avg..Area.Income",
+    "Avg..Area.House.Age",
+    "Area.Population"
+  )), pch=20, col='blue', cex=.5, main="9-11 rooms")
+
+
+```
+
+
+
+
+
+See on histograms, how the data is distributed.
+
+
+```{r}
+price_hist <- hist(
+  housing$Price, 
+  col = "skyblue",
+  main = "Price frequency",
+  xlab="$",
+  ylab = "Count"
+)
+
+par(mfrow=c(1,2))
+price_hist$counts <- price_hist$counts / sum(price_hist$counts) * 100
+
+price_hist$counts
+
+plot(
+  price_hist,
+  col = "skyblue",
+  main = "Price % distribution",
+  xlab="$",
+  ylab = "Frequency %",
+  cex.main=0.8
+)
+```
+
+```{r}
+
+price_box <- boxplot(
+  housing$Price, 
+  col = "skyblue",
+  horizontal = 1,
+  main = "Price box plot",
+  xlab = "$",
+  range = 1.5,
+  cex.main = 0.8
+)
+
+price_box_out <- which(housing$Price %in% price_box$out)
+price_box_out
+
+library(DT)
+datatable(
+  housing[price_box_out, ],
+  options=list(scrollX=1,pageLength=10,searching = FALSE,scroller = TRUE,scrollY=200)
+)
+```
+
+
+
+## Avg..Area.House.Age
+
+```{r}
+avg_age_hist <- hist(
+  housing$Avg..Area.House.Age, 
+  col = "skyblue",
+  main = "House age frequency",
+  xlab="Years",
+  ylab = "Count"
+)
+
+```
+
+Also the relative distribution
+
+```{r}
+par(mfrow=c(1,2))
+avg_age_hist$counts <- avg_age_hist$counts / sum(avg_age_hist$counts) * 100
+
+avg_age_hist$counts
+
+plot(
+  avg_age_hist,
+  col = "skyblue",
+  main = "House age % distribution",
+  xlab="Years",
+  ylab = "Frequency %",
+  cex.main=0.8
+)
+
+avg_rooms_box <- boxplot(
+  housing$Avg..Area.House.Age, 
+  col = "skyblue",
+  horizontal = 1,
+  main = "House age box plot",
+  xlab = "Years",
+  range = 2,
+  cex.main = 0.8
+)
+boxplot
+```
+
+Outliers of the __Avg..Area.House.Age__.
+
+```{r}
+sort(avg_rooms_box$out)
+avg_rooms_box_out <- which(housing$Avg..Area.House.Age %in% avg_rooms_box$out)
+avg_rooms_box_out
+
+library(DT)
+datatable(
+  housing[avg_rooms_box_out, ],
+  options=list(scrollX=1,pageLenght=5,searching = FALSE,scroller = TRUE,scrollY=200)
+)
+```
+
+
+
+# FOO BAR
+
+Lets compare the _Price_ with the discrete variables using box plots. The number of rooms
+and the age of the house are discrete if rounded.
+
+```{r}
+par(mfrow=c(1,2))
+discrete_vars = c(
+  "Avg..Area.House.Age",
+  "Avg..Area.Number.of.Rooms",
+  "Avg..Area.Number.of.Bedrooms",
+  "Area.Population",
+  "Avg..Area.Income"
+)
+
+for (i in 1:length(discrete_vars)) {
+  boxplot(
+    housing$Price~round(housing[,discrete_vars[i]]),
+    col="skyblue",
+    xlab ="",
+    ylab ="",
+    las=2,
+    cex.axis=0.5,
+    cex.lab=0.7, 
+    main=paste("Price vs" ,discrete_vars[i]),
+    range=2
+  )
+}
+```
+
+
+
+
+
+
