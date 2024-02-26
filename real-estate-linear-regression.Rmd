@@ -820,8 +820,68 @@ for (i in 1:length(discrete_vars)) {
 }
 ```
 
+# Linear regression
 
+Let's get the summary for all of our variables with Price being our dependent variable and other variables being independent.
 
+```{r}
+
+model <- lm(Price ~ Avg..Area.Income + Avg..Area.House.Age + Avg..Area.Number.of.Rooms + Avg..Area.Number.of.Bedrooms + Area.Population, data = housing)
+
+summary(model)
+```
+We can see that "Average Area Income" coefficient has the highest effect on price, followed by "Average Area House Age" and "Area Population".
+
+Let's back this up with graphs:
+
+```{r}
+plot(housing$Avg..Area.House.Age, housing$Price, main="House Price vs House Age", xlab="House Age", ylab="House Price")
+model_HouseAge <- lm(Price ~ Avg..Area.House.Age, data = housing)
+abline(model_HouseAge, col="red")
+```
+
+```{r}
+plot(housing$Avg..Area.Income, housing$Price, main="House Price vs Income", xlab="Income", ylab="House Price")
+model_HouseIncome <- lm(Price ~ Avg..Area.Income, data = housing)
+abline(model_HouseIncome, col="red")
+```
+
+```{r}
+plot(housing$Avg..Area.Number.of.Rooms, housing$Price, main="House Price vs Rooms", xlab="Rooms", ylab="House Price")
+model_HouseRooms <- lm(Price ~ Avg..Area.Number.of.Rooms, data = housing)
+abline(model_HouseRooms, col="red")
+```
+
+```{r}
+plot(housing$Avg..Area.Number.of.Bedrooms, housing$Price, main="House Price vs Bedrooms", xlab="Bedrooms", ylab="House Price")
+model_HouseBedrooms <- lm(Price ~ Avg..Area.Number.of.Bedrooms, data = housing)
+abline(model_HouseBedrooms, col="red")
+```
+
+```{r}
+plot(housing$Area.Population, housing$Price, main="House Price vs Population", xlab="Population", ylab="House Price")
+model_Population <- lm(Price ~ Area.Population, data = housing)
+abline(model_Population, col="red")
+```
+
+We can see from the graphs that "Average Income" has the most significant increase in price with "Average House Age" being the second most impactful.
+
+There is a slight increase in price with the other 3 variables but it is minimal.
+
+# Conclusion?
+
+The more money you earn the more you're willing to spend on housing? idk lol
+
+There are outliers but on average a person spends roughly:
+
+```{r}
+housing$Percentage <- (housing$Price / housing$Avg..Area.Income) * 100
+average_percentage <- mean(housing$Percentage)
+average_percentage
+```
+-Percent of their yearly income on housing.
+
+This means that in order to buy the houses they need to save up for 17.88 years of their salary or get a house loan with a duration of 20 years or longer.
 
 
 
