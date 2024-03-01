@@ -558,7 +558,7 @@ datatable(
   options=list(scrollX=1,pageLength=7,searching = FALSE,scroller = TRUE,scrollY=200)
 )
 ```
-# ???
+# Analysis
 
 ```{r}
 # Total of 90 outliers were removed from the _housing_ dataset.
@@ -732,7 +732,7 @@ datatable(
 
 
 
-## Avg..Area.House.Age
+## Avg. Area House Age
 
 ```{r}
 avg_age_hist <- hist(
@@ -790,7 +790,7 @@ datatable(
 
 
 
-# FOO BAR
+# Avg. Area Income
 
 Lets compare the _Price_ with the discrete variables using box plots. The number of rooms
 and the age of the house are discrete if rounded.
@@ -822,7 +822,7 @@ for (i in 1:length(discrete_vars)) {
 
 # Linear regression
 
-Let's get the summary for all of our variables with Price being our dependent variable and other variables being independent.
+Let's get the summary for all of our variables with Price being our dependent variable and the other variables being independent.
 
 ```{r}
 
@@ -830,20 +830,20 @@ model <- lm(Price ~ Avg..Area.Income + Avg..Area.House.Age + Avg..Area.Number.of
 
 summary(model)
 ```
-We can see that "Average Area Income" coefficient has the highest effect on price, followed by "Average Area House Age" and "Area Population".
+We can see that "Average Area Income" coefficient does indeed have the highest effect on price, followed by "Average Area House Age" and "Area Population".
 
-Let's back this up with graphs:
-
-```{r}
-plot(housing$Avg..Area.House.Age, housing$Price, main="House Price vs House Age", xlab="House Age", ylab="House Price")
-model_HouseAge <- lm(Price ~ Avg..Area.House.Age, data = housing)
-abline(model_HouseAge, col="red")
-```
+Let's show graphs for all variables:
 
 ```{r}
 plot(housing$Avg..Area.Income, housing$Price, main="House Price vs Income", xlab="Income", ylab="House Price")
 model_HouseIncome <- lm(Price ~ Avg..Area.Income, data = housing)
 abline(model_HouseIncome, col="red")
+```
+
+```{r}
+plot(housing$Avg..Area.House.Age, housing$Price, main="House Price vs House Age", xlab="House Age", ylab="House Price")
+model_HouseAge <- lm(Price ~ Avg..Area.House.Age, data = housing)
+abline(model_HouseAge, col="red")
 ```
 
 ```{r}
@@ -870,7 +870,7 @@ There is a slight increase in price with the other 3 variables but it is minimal
 
 # Conclusion?
 
-The more money you earn the more you're willing to spend on housing? idk lol
+Data shows that the more money people earn the more they're willing to spend on housing.
 
 There are outliers but on average a person spends roughly:
 
